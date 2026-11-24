@@ -185,7 +185,43 @@ main{flex:1;padding:14px max(2.5vw,16px);display:flex;flex-direction:column;min-
 <body>
 <header><img src="assets/logo.svg" alt="AITech"><span id="pj"></span><nav id="nav"></nav></header>
 <main id="main"></main>
+<style>
+/* 確認・修正 */
+.row.done{background:#E8F2FC;border-left-color:#72A9DD}.row.done i{color:var(--blue6)}
+.row.done.cur{background:#D3E6FA;border-left-color:var(--blue)}
+.row .ck{font-style:normal;color:var(--blue);font-weight:700;margin-left:auto}
+.list .cnt{align-items:center;white-space:nowrap}
+nav button[aria-disabled=true]{opacity:.4;cursor:not-allowed}
+.why.done{background:#E8F2FC;color:var(--blue6);border-color:#B8D5F2}
+.ed{display:grid;grid-template-columns:26px 86px 1fr;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--n100)}
+.ed>b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px}
+.ed>span{font-size:13px;color:var(--sub)}
+.ed .f{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:14px}
+.ed input,.ed select,.cf select,.cf input{font:inherit;font-size:15px;border:1px solid var(--rule);border-radius:4px;padding:4px 8px;min-height:36px;background:#fff;color:var(--ink)}
+.ed input[type=number]{width:96px;text-align:right}
+.ed input.w{width:150px}
+.ed .ro{font-size:16px;font-weight:700}
+.chg{border-color:#F0A54A!important;background:#FFF6EA!important}
+.tag{font-size:11px;color:#8A4B00;background:#FFF1DE;border:1px solid #F0A54A;border-radius:10px;padding:0 7px}
+.cf{margin-top:10px;display:grid;grid-template-columns:86px 1fr;gap:8px;align-items:center;font-size:13px;color:var(--sub)}
+.cf select{width:100%}
+.res2{margin-top:10px;border-radius:6px;background:var(--b50);padding:10px 14px}
+.res2 .eq{font-size:16px;font-variant-numeric:tabular-nums}.res2 .eq em{font-style:normal;color:var(--blue);font-weight:700}
+.res2 .r{font-size:26px;font-weight:700;color:var(--blue);margin-top:2px}.res2 .r small{font-size:14px;color:var(--sub);font-weight:400;margin:0 4px}
+.foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;align-items:center}
+.foot .note{margin-right:auto;font-size:12px;color:var(--sub)}
+.btn.ok{background:#E8F2FC;border-color:#B8D5F2;color:var(--blue6)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+/* Excel */
+.xl tr.fill td{animation:fillrow .5s ease-out both}
+@keyframes fillrow{from{background:#D8EAFE}}
+.xl tr.wait td{color:transparent}
+.xl td.ed2{background:#FFF6EA;color:#8A4B00;font-weight:700}
+.xprog{display:flex;align-items:center;gap:12px;font-size:14px;color:var(--sub)}
+.xprog .prog{width:220px}
+</style>
 <script src="lib/pdf.min.js"></script>
+<script src="lib/exceljs.min.js"></script>
 <script>// 図面読み取りコア（ブラウザ・Node共通）。pdf.jsのドキュメントを受け取り、ルールだけで読み取る。
 (function(root){
 const R={};
@@ -321,7 +357,7 @@ R.fittings=function(T,P,TPL,meta){
       const head=tin.filter(t=>Math.abs(t.y0-it.c.y0-4)<4&&t.x0>it.c.x1+4&&!/^[\d号棟ヶ所]+$/.test(t.s)).sort((a,b)=>a.x0-b.x0);
       const name=head[0];
       const nx1=name?name.x1:it.c.x1+20;
-      const cnt=tin.filter(t=>t.y0<row.top+50&&t.x0>nx1+5&&/\d|号棟|ヶ所/.test(t.s));
+      const cnt=tin.filter(t=>t.y0<row.top+50&&t.x0>nx1+5&&/^\d+$|号棟$|^ヶ所$/.test(t.s));
       const place=tin.filter(t=>t.y0>it.c.y0+15&&t.y0<it.c.y0+30&&t.x1<(cnt.length?Math.min(...cnt.map(c=>c.x0)):x1)).sort((a,b)=>a.x0-b.x0).map(t=>t.s).join(' ');
       const spec=tin.filter(t=>/^[SW]-/.test(t.s)&&t.y0>row.bot-40)[0];
       const rng=tin.filter(t=>t.s.includes('塗装')&&t.y0>row.bot-30)[0];
@@ -378,7 +414,8 @@ R.summary=function(T,meta){
     const total=row.length?+row[row.length-1].s:0;
     const perb=sub.length?sub.map(s=>pick(s.x0)):(blds.length<=1?[total]:[]);
     const sp=T.find(t=>/^[SW]-/.test(t.s)&&t.x0>300&&t.x0<390&&t.y0>c.y0-9&&t.y0<c.y0+3);
-    out[c.s]={perb,total,spec:sp?sp.s:''};
+    const grp=T.filter(t=>t.x0<100&&/専用|共用/.test(t.s)&&t.y0<=c.y0+12).sort((a,b)=>b.y0-a.y0)[0];
+    out[c.s]={perb,total,spec:sp?sp.s:'',kubun:grp?(/専用/.test(grp.s)?'建(専)':'建(共)'):''};
   }
   return out;
 };
@@ -408,23 +445,29 @@ root.ZR=R;
 </script>
 <script>
 {
-const TPL={"110000001100000001000000010000000100000001000000010000000100000001000000010000000100000011110000|1":"1","111111101000001110000001100000011000000101111111000000010000000100000011000001100000110001111000|3":"9","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100001111000|2":"0","111110001000110010000100100001001000010010000100100001001000010010000100100001001000110001111000|2":"0","011111001000011010000010100000101000001011000100011111001000011010000010100000101000011001111100|3":"8","011110001000110010000100100001001000010010000100100001001000010010000100100001001000110001111000|2":"0","010000001100000011000000010000000100000001000000010000000100000001000000010000000100000011110000|1":"1","011111101000001110000001100000011000000101111111000000010000000100000011000001100000110001111000|3":"9","001111000110000011000000100000001000000010000000111111101000001110000001100000011000001001111110|3":"6","111100001000100010000100100001001000010010000100100001001000010010000100100001001000100011110000|2":"0","011111001000011010000010100000101000011001000100011111001000011010000010100000101000001011111100|3":"8","111111110000001000000110000001000000110000001000000010000001000000010000001100000010000001100000|3":"7","011110001000110010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","111111111000000010000000100000001111111000000011000000010000000100000001100000011000001001111110|3":"5","011111101000001110000001100000011000001111000110011111101000001110000001100000011000001101111110|3":"8","011110001000100010000100100001001000010010000100100001001000010010000100100001001000100001111000|2":"0","111111101000001110000001100000111000001001111100110001101000001110000001100000011000001011111100|3":"8","011111101000001110000001100000011000001001111110110001101000001110000001100000011000001101111110|3":"8","111111111000000010000000111111000000011000000011000000010000000100000001100000011000001101111110|3":"5","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100011111000|2":"0","000011000000110000010100001101000010010001000100110001001000010011111111000001000000010000000100|3":"4","011111001000001010000001100000011000000101111111000000010000000100000010000001000000100001111000|3":"9","011111101000001110000001100000011000001101111110110001101000001110000001100000011000001101111110|3":"8","111110001000100010000100100001001000010010000100100001001000010010000100100001001000100011111000|2":"0","111111001000001000000010000000100000001000000100000111000000011000000010000000101000001011111100|3":"3","111111111000000010000000100000001111111000000010000000010000000100000001000000011000001111111110|3":"5","111110001000110010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","011111101000001010000001100000011000001001000110011111101000001010000001100000011000001111111110|3":"8","111100001000100010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","111111101000001110000001100000011000001001000110011111101000001010000001100000011000001001111110|3":"8","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100011110000|2":"0","111111111000000010000000111111000000011000000010000000010000000100000001100000011000001001111110|3":"5","011111101000001010000001000000010000001000000110011111001000000010000000100000001000000011111111|3":"2","001111000110000011000000100000001000000010000000111111001000011010000010100000101000001011111100|3":"6","111111111000000010000000111111000000011000000011000000010000000100000001100000011000001001111110|3":"5","111111101000001100000001000000010000001001111100110000001000000010000000100000001000000011111111|3":"2","011111101000001110000001000000010000001100000110011111001000000010000000100000001000000011111111|3":"2","111111101000001110000001100000111000001001111100110001101000001110000001100000011000001001111110|3":"8","111111111000000010000000100000001111111000000010000000010000000100000001100000011000001001111110|3":"5","001111000010000001000000100000001000000011111100100001101000001110000001100000011000001001111110|3":"6","001111000110000011000000100000001000000011111100100001101000001110000001100000011000001101111110|3":"6","011111101000001110000001000000010000001001111110110000001000000010000000100000001000000011111111|3":"2","011111101000001010000001100000011000001111000110011111101000001010000001100000011000001111111110|3":"8","111111101000001100000001000000110000001001111100110000001000000010000000100000001000000011111111|3":"2","011111001000011010000010000000100000011001111100110000001000000010000000100000001000000011111110|3":"2","111111111000000010000000111111000000011000000010000000010000000100000001000000011000001111111110|3":"5","111111001000011010000010100000101000011011111100110001001000001010000010100000101000011011111100|3":"8","011100001000100010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","111111111000000010000000100000001111110000000010000000010000000100000001100000011000001001111110|3":"5","111111111000000010000000100000001111111000000011000000010000000100000001100000011000001101111110|3":"5","011111101000001010000001000000010000001100000110011111001000000010000000100000001000000011111111|3":"2","111111101000001100000001000000010000001101111110110000001000000010000000100000001000000011111111|3":"2","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100001110000|2":"0","111111101000001110000001100000011000001101111110110001101000001010000001100000011000001001111110|3":"8","111111001000001000000010000000100000001001111100110000001000000010000000100000001000000011111110|3":"2","011111101000001110000001100000011000000111000001011111110000000100000011000001100000110001111000|3":"9","011111101000001010000001000000010000001100000110000111100000001100000001100000011000001001111110|3":"3","000011000001110000010100001101000010010001000100110001001111111100000100000001000000010000000100|3":"4","000011000000110000010100001101000010010001000100110001001111111100000100000001000000010000000100|3":"4","111111001000011010000010000000100000001000000100111111001000000010000000100000001000000011111110|3":"2","001111000110000011000000100000001000000010000000111111101000001010000001100000011000001111111110|3":"6","111111101000000010000000100000001111110000000010000000100000001000000010000000101000001011111100|3":"5","011111101000001010000001000000010000001001111100110000001000000010000000100000001000000011111111|3":"2","011111101000001010000001000000010000001101111110110000001000000010000000100000001000000011111111|3":"2","001111000110000011000000100000001000000011111100100001101000001110000001100000011000001001111110|3":"6","111111001000001010000010100000101000011011000100111111001000011010000010100000101000011011111100|3":"8","011111101000001110000001100000011000001111000110011111101000001010000001100000011000001101111110|3":"8","111111101000000010000000100000001111110000000010000000100000001000000010100000101000001001111100|3":"5","111111001000001010000010100000101000001001111100110001001000001010000010100000101000001001111100|3":"8","011111101000001010000001100000011000001101111110110001101000001110000001100000011000001001111110|3":"8","011111001000011010000010000000100000001000000100011111001000000010000000100000001000000011111110|3":"2","011111101000001010000001100000011000000111000001011111110000000100000010000001100000110001111000|3":"9"}, REF={"ref": {"朝霞膝折/SD-1": {"xkey": "朝/SD-1"}, "朝霞膝折/WD-1": {"xkey": "朝/WD-1"}, "朝霞膝折/SD-11": {"xkey": "朝/SD-11"}, "朝霞膝折/SD-12": {"xkey": "朝/SD-12"}, "朝霞膝折/SD-13": {"xkey": "朝/SD-13"}, "朝霞膝折/SD-14": {"xkey": "朝/SD-14"}, "朝霞膝折/SD-15": {"xkey": "朝/SD-15"}, "朝霞膝折/SD-16": {"xkey": "朝/SD-16"}, "朝霞膝折/SD-17": {"xkey": "朝/SD-17"}, "朝霞膝折/SD-18": {"xkey": "朝/SD-18"}, "朝霞膝折/SD-19": {"xkey": "朝/SD-19"}, "朝霞膝折/SD-20": {"xkey": "朝/SD-20"}, "朝霞膝折/SD-21": {"xkey": "朝/SD-21"}, "朝霞膝折/SD-22": {"xkey": "朝/SD-22"}, "朝霞膝折/SD-23": {"xkey": "朝/SD-23"}, "朝霞膝折/SD-24": {"xkey": "朝/SD-24"}, "朝霞膝折/SD-25": {"xkey": "朝/SD-25"}, "朝霞膝折/SD-26": {"xkey": "朝/SD-26"}, "朝霞膝折/SD-27": {"xkey": "朝/SD-27"}, "朝霞膝折/SD-28": {"xkey": "朝/SD-28"}, "朝霞膝折/SD-29": {"xkey": "朝/SD-29"}, "朝霞膝折/SD-30": {"xkey": "朝/SD-30"}, "朝霞膝折/SD-31": {"xkey": "朝/SD-31"}, "朝霞膝折/SD-32": {"xkey": "朝/SD-32"}, "朝霞膝折/SD-33": {"xkey": "朝/SD-33"}, "朝霞膝折/SD-34": {"xkey": "朝/SD-34"}, "朝霞膝折/SG-11": {"xkey": "朝/SG-11"}, "朝霞膝折/SG-12": {"xkey": "朝/SG-12"}, "朝霞膝折/SG-13": {"xkey": "朝/SG-13"}, "朝霞膝折第二/SD-1": {"xkey": "朝2/SD-1"}, "朝霞膝折第二/SD-11": {"xkey": "朝2/SD-11"}, "朝霞膝折第二/SD-12": {"xkey": "朝2/SD-12"}, "朝霞膝折第二/SD-13": {"xkey": "朝2/SD-13"}, "朝霞膝折第二/SD-14": {"xkey": "朝2/SD-14"}, "朝霞膝折第二/SD-15": {"xkey": "朝2/SD-15"}, "朝霞膝折第二/SD-16": {"xkey": "朝2/SD-16"}, "朝霞膝折第二/SD-17": {"xkey": "朝2/SD-17"}, "朝霞膝折第二/SD-21": {"xkey": "朝2/SD-21"}, "朝霞膝折第二/SD-22": {"xkey": "朝2/SD-22"}, "朝霞膝折第二/SD-23": {"xkey": "朝2/SD-23"}, "朝霞膝折第二/SD-24": {"xkey": "朝2/SD-24"}, "鶴瀬市街地住宅/SD-1": {"xkey": "鶴/SD-1"}, "鶴瀬市街地住宅/SD-2": {"xkey": "鶴/SD-2"}, "鶴瀬市街地住宅/SD-11": {"xkey": "鶴/SD-11"}, "鶴瀬市街地住宅/SD-12": {"xkey": "鶴/SD-12"}, "鶴瀬市街地住宅/SD-13": {"xkey": "鶴/SD-13"}, "鶴瀬市街地住宅/SD-14": {"xkey": "鶴/SD-14"}, "鶴瀬市街地住宅/SD-15": {"xkey": "鶴/SD-15"}, "鶴瀬市街地住宅/SD-16": {"xkey": "鶴/SD-16"}, "鶴瀬市街地住宅/SD-17": {"xkey": "鶴/SD-17"}, "鶴瀬市街地住宅/SG-11": {"xkey": "鶴/SG-11"}, "鶴瀬市街地住宅/SS-11": {"xkey": "鶴/SS-11"}, "大和新倉/SD-1": {"xkey": "大/SD-1"}, "大和新倉/SD-2": {"xkey": "大/SD-2"}, "大和新倉/SD-11": {"xkey": "大/SD-11"}, "大和新倉/SD-12": {"xkey": "大/SD-12"}, "大和新倉/SD-13": {"xkey": "大/SD-13"}, "大和新倉/SD-14": {"xkey": "大/SD-14"}, "大和新倉/SD-15": {"xkey": "大/SD-15"}, "大和新倉/SD-16": {"xkey": "大/SD-16"}, "大和新倉/SD-17": {"xkey": "大/SD-17"}, "大和新倉/SD-18": {"xkey": "大/SD-18"}, "大和新倉/SD-19": {"xkey": "大/SD-19"}, "大和新倉/SD-20": {"xkey": "大/SD-20"}, "大和新倉/SG-11": {"xkey": "大/SG-11"}, "大和新倉/SG-12": {"xkey": "大/SG-12"}}, "s5": []};
+const TPL={"110000001100000001000000010000000100000001000000010000000100000001000000010000000100000011110000|1":"1","111111101000001110000001100000011000000101111111000000010000000100000011000001100000110001111000|3":"9","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100001111000|2":"0","111110001000110010000100100001001000010010000100100001001000010010000100100001001000110001111000|2":"0","011111001000011010000010100000101000001011000100011111001000011010000010100000101000011001111100|3":"8","011110001000110010000100100001001000010010000100100001001000010010000100100001001000110001111000|2":"0","010000001100000011000000010000000100000001000000010000000100000001000000010000000100000011110000|1":"1","011111101000001110000001100000011000000101111111000000010000000100000011000001100000110001111000|3":"9","001111000110000011000000100000001000000010000000111111101000001110000001100000011000001001111110|3":"6","111100001000100010000100100001001000010010000100100001001000010010000100100001001000100011110000|2":"0","011111001000011010000010100000101000011001000100011111001000011010000010100000101000001011111100|3":"8","111111110000001000000110000001000000110000001000000010000001000000010000001100000010000001100000|3":"7","011110001000110010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","111111111000000010000000100000001111111000000011000000010000000100000001100000011000001001111110|3":"5","011111101000001110000001100000011000001111000110011111101000001110000001100000011000001101111110|3":"8","011110001000100010000100100001001000010010000100100001001000010010000100100001001000100001111000|2":"0","111111101000001110000001100000111000001001111100110001101000001110000001100000011000001011111100|3":"8","011111101000001110000001100000011000001001111110110001101000001110000001100000011000001101111110|3":"8","111111111000000010000000111111000000011000000011000000010000000100000001100000011000001101111110|3":"5","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100011111000|2":"0","000011000000110000010100001101000010010001000100110001001000010011111111000001000000010000000100|3":"4","011111001000001010000001100000011000000101111111000000010000000100000010000001000000100001111000|3":"9","011111101000001110000001100000011000001101111110110001101000001110000001100000011000001101111110|3":"8","111110001000100010000100100001001000010010000100100001001000010010000100100001001000100011111000|2":"0","111111001000001000000010000000100000001000000100000111000000011000000010000000101000001011111100|3":"3","111111111000000010000000100000001111111000000010000000010000000100000001000000011000001111111110|3":"5","111110001000110010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","011111101000001010000001100000011000001001000110011111101000001010000001100000011000001111111110|3":"8","111100001000100010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","111111101000001110000001100000011000001001000110011111101000001010000001100000011000001001111110|3":"8","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100011110000|2":"0","111111111000000010000000111111000000011000000010000000010000000100000001100000011000001001111110|3":"5","011111101000001010000001000000010000001000000110011111001000000010000000100000001000000011111111|3":"2","001111000110000011000000100000001000000010000000111111001000011010000010100000101000001011111100|3":"6","111111111000000010000000111111000000011000000011000000010000000100000001100000011000001001111110|3":"5","111111101000001100000001000000010000001001111100110000001000000010000000100000001000000011111111|3":"2","011111101000001110000001000000010000001100000110011111001000000010000000100000001000000011111111|3":"2","111111101000001110000001100000111000001001111100110001101000001110000001100000011000001001111110|3":"8","111111111000000010000000100000001111111000000010000000010000000100000001100000011000001001111110|3":"5","001111000010000001000000100000001000000011111100100001101000001110000001100000011000001001111110|3":"6","001111000110000011000000100000001000000011111100100001101000001110000001100000011000001101111110|3":"6","011111101000001110000001000000010000001001111110110000001000000010000000100000001000000011111111|3":"2","011111101000001010000001100000011000001111000110011111101000001010000001100000011000001111111110|3":"8","111111101000001100000001000000110000001001111100110000001000000010000000100000001000000011111111|3":"2","011111001000011010000010000000100000011001111100110000001000000010000000100000001000000011111110|3":"2","111111111000000010000000111111000000011000000010000000010000000100000001000000011000001111111110|3":"5","111111001000011010000010100000101000011011111100110001001000001010000010100000101000011011111100|3":"8","011100001000100010000100100001001000010010000100100001001000010010000100100001001000110011111000|2":"0","111111111000000010000000100000001111110000000010000000010000000100000001100000011000001001111110|3":"5","111111111000000010000000100000001111111000000011000000010000000100000001100000011000001101111110|3":"5","011111101000001010000001000000010000001100000110011111001000000010000000100000001000000011111111|3":"2","111111101000001100000001000000010000001101111110110000001000000010000000100000001000000011111111|3":"2","111110001000110010000100100001001000010010000100100001001000010010000100100001001000100001110000|2":"0","111111101000001110000001100000011000001101111110110001101000001010000001100000011000001001111110|3":"8","111111001000001000000010000000100000001001111100110000001000000010000000100000001000000011111110|3":"2","011111101000001110000001100000011000000111000001011111110000000100000011000001100000110001111000|3":"9","011111101000001010000001000000010000001100000110000111100000001100000001100000011000001001111110|3":"3","000011000001110000010100001101000010010001000100110001001111111100000100000001000000010000000100|3":"4","000011000000110000010100001101000010010001000100110001001111111100000100000001000000010000000100|3":"4","111111001000011010000010000000100000001000000100111111001000000010000000100000001000000011111110|3":"2","001111000110000011000000100000001000000010000000111111101000001010000001100000011000001111111110|3":"6","111111101000000010000000100000001111110000000010000000100000001000000010000000101000001011111100|3":"5","011111101000001010000001000000010000001001111100110000001000000010000000100000001000000011111111|3":"2","011111101000001010000001000000010000001101111110110000001000000010000000100000001000000011111111|3":"2","001111000110000011000000100000001000000011111100100001101000001110000001100000011000001001111110|3":"6","111111001000001010000010100000101000011011000100111111001000011010000010100000101000011011111100|3":"8","011111101000001110000001100000011000001111000110011111101000001010000001100000011000001101111110|3":"8","111111101000000010000000100000001111110000000010000000100000001000000010100000101000001001111100|3":"5","111111001000001010000010100000101000001001111100110001001000001010000010100000101000001001111100|3":"8","011111101000001010000001100000011000001101111110110001101000001110000001100000011000001001111110|3":"8","011111001000011010000010000000100000001000000100011111001000000010000000100000001000000011111110|3":"2","011111101000001010000001100000011000000111000001011111110000000100000010000001100000110001111000|3":"9"};
 pdfjsLib.GlobalWorkerOptions.workerSrc='lib/pdf.worker.min.js';
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const f2=v=>v==null?'—':Number(v).toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2});
+const f2=v=>v==null||isNaN(v)?'—':Number(v).toLocaleString('ja-JP',{minimumFractionDigits:2,maximumFractionDigits:2});
 const mm=v=>v==null?'—':Number(v).toLocaleString('ja-JP');
 const EST=['朝霞膝折','朝霞膝折第二','鶴瀬市街地住宅','大和新倉'];
-const COL5={'朝霞膝折':0,'朝霞膝折第二':3,'鶴瀬市街地住宅':5,'大和新倉':8};
-const STEPS=['図面','読み取り','Excel'];
+const EK={'朝霞膝折':'朝','朝霞膝折第二':'朝2','鶴瀬市街地住宅':'鶴','大和新倉':'大'};
+const BL={'朝霞膝折':['1号棟','2号棟','3号棟'],'朝霞膝折第二':['1号棟','2号棟'],'鶴瀬市街地住宅':['住棟等','集会所','屋外'],'大和新倉':['住棟']};
+const STEPS=['図面','読み取り・確認','Excel転記'];
 const KEYS=['code','count','dim','spec','range'];
-const SL={ok:'一致',diff:'係数が異なる',spec:'図面内で仕様が不一致',ind:'係数表の対象外'};
-let doc=null, PAGES=[], D=[], S5=[], thumbs=[], crops={}, step=-1, cur=0, xt='3', filt='', pick=null;
+const COEFS=[['玄関プレスドア',3.0],['片開きフラッシュドア',2.9],['額入り片開きフラッシュドア',2.5],['片引きフラッシュドア（ガラリ付）',3.3],['親子開きフラッシュドア',2.7],['額入親子開きフラッシュドア',2.4],
+  ['両開きフラッシュドア',2.6],['額入り両開きフラッシュドア',2.2],['両開きフラッシュドア（ガラリ付）',3.0],['ガラリ',4.2],['シャッター',3.7]];
+const IND='個別計算（1か所の面積を入力）';
+const WHY={guess:'係数表にない形',spec:'仕様の不一致',ind:'個別計算'};
+let doc=null, PAGES=[], D=[], thumbs=[], crops={}, step=-1, cur=0, xt='3', drawerOpen=true, written=false;
 const nav=document.getElementById('nav'), main=document.getElementById('main');
-function drawNav(){ nav.innerHTML=D.length?STEPS.map((s,i)=>`${i?'<i></i>':''}<button role="tab" aria-selected="${i===step}" data-i="${i}"><b>${i+1}</b><span>${s}</span></button>`).join(''):'';
-  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>go(+b.dataset.i)); }
+const need=()=>D.filter(d=>d.st!=='ok'&&!d.ok).length;
+function drawNav(){ const lock=need()>0;
+  nav.innerHTML=D.length?STEPS.map((s,i)=>`${i?'<i></i>':''}<button role="tab" aria-selected="${i===step}" data-i="${i}" ${i===2&&lock?'aria-disabled="true" title="要確認をすべて確認すると進めます"':''}><b>${i+1}</b><span>${s}</span></button>`).join(''):'';
+  nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.getAttribute('aria-disabled')==='true') return; go(+b.dataset.i); }); }
 function go(i){ step=i; drawNav(); [s1,s2,s3][i](); }
 
-/* ---------- 開始：PDFを選ぶ ---------- */
+/* ---------- 開始 ---------- */
 function start(msg){
   main.innerHTML=`<div class="start"><label class="drop" id="dp"><svg width="56" height="64" viewBox="0 0 40 48" aria-hidden="true"><path d="M4 2h22l10 10v34H4z" fill="#fff" stroke="#0050A2" stroke-width="2"/><path d="M26 2v10h10" fill="none" stroke="#0050A2" stroke-width="2"/><text x="20" y="36" text-anchor="middle" font-size="10" font-weight="700" fill="#0050A2">PDF</text></svg>
   <span class="btn">設計図書PDFを選択</span><input type="file" accept="application/pdf" id="fi" hidden>${msg?`<span class="err">${esc(msg)}</span>`:''}</label></div>`;
@@ -435,7 +478,7 @@ function start(msg){
 }
 const tick=()=>new Promise(r=>setTimeout(r,0));
 async function run(file){
-  main.innerHTML=`<div class="start"><div class="load"><div class="n" id="ln">0<small id="lt">/ — ページ</small></div><div class="prog"><i id="lp"></i></div></div></div>`;
+  main.innerHTML=`<div class="start"><div class="load"><div class="n" id="ln">0<small>/ — ページ</small></div><div class="prog"><i id="lp"></i></div></div></div>`;
   const ln=document.getElementById('ln'), lp=document.getElementById('lp');
   try{
     doc=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise;
@@ -450,8 +493,7 @@ async function run(file){
     }
     build(items,sums);
     if(!D.length) throw new Error('鉄部等塗装図が見つかりません');
-    
-    window.__result=D.map(d=>({est:d.est,code:d.code,W:d.W,H:d.H,spec:d.spec,rng:d.rng,qty:d.qty,coef:d.coef??null,ind:!!d.ind,unit:d.unit,total:d.total}));
+    window.__result=D.map(d=>({est:d.est,code:d.code,W:d.W,H:d.H,spec:d.spec,rng:d.rng,qty:d.qty,coef:d.coef??null,ind:!!d.ind,unit:d.unit,total:d.total,kubun:d.kubun}));
     go(0);
   }catch(e){ console.error(e); start('読み取れませんでした：'+e.message); }
 }
@@ -459,101 +501,204 @@ async function renderCanvas(pg,scale){ const vp=pg.getViewport({scale}), c=docum
   await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise; return c; }
 function cropCanvas(big,b,s){ const p=3, c=document.createElement('canvas'); const x=(b.x0-p)*s, y=(b.y0-p)*s, w=(b.x1-b.x0+2*p)*s, h=(b.y1-b.y0+2*p)*s;
   c.width=Math.round(w); c.height=Math.round(h); c.getContext('2d').drawImage(big,x,y,w,h,0,0,c.width,c.height); return c; }
+const NB={'朝霞膝折':3,'朝霞膝折第二':2,'鶴瀬市街地住宅':3,'大和新倉':1};
 function build(items,sums){
   const ord=e=>EST.indexOf(e);
-  D=items.map(it=>{ const j=ZR.judge(it), s=(sums[it.est]||{})[it.code]||{perb:[],total:0}, ref=REF.ref[it.est+'/'+it.code]||{};
-    const d={...it, ...j, qty:s.total, perb:s.perb, sspec:s.spec||'', ref};
-    if(!j.ind){ d.unit=ZR.unit(it.W,it.H,j.coef,it.rng==='片面'); d.total=Math.round(d.unit*d.qty*100)/100; }
-    else { d.unit=null; d.total=null; }
-    d.st=j.ind?'ind':(/片引き/.test(j.ctype||'')||j.shape==='3枚開き')?'guess':'ok';
-    return d; }).sort((a,b)=>ord(a.est)-ord(b.est)||a.page-b.page||a.cell.y0-b.cell.y0||a.cell.x0-b.cell.x0);
-  // 図面内の仕様の食い違い：塗装図と住棟集計表の仕様（集計表の値は数量調書の③にある）
-  for(const d of D) if(d.st==='ok'&&d.sspec&&d.sspec!==d.spec) d.st='spec';
-  const NB={'朝霞膝折':3,'朝霞膝折第二':2,'鶴瀬市街地住宅':3,'大和新倉':1}; for(const d of D) d.perb=(d.perb||[]).slice(0,NB[d.est]||9);
+  D=items.map(it=>{ const j=ZR.judge(it), s=(sums[it.est]||{})[it.code]||{perb:[],total:0};
+    const d={...it, ...j, qty:s.total, perb:(s.perb||[]).slice(0,NB[it.est]||9), sspec:s.spec||'', kubun:s.kubun||''};
+    d.st=j.ind?'ind':(/片引き/.test(j.ctype||'')||j.shape==='3枚開き')?'guess':(d.sspec&&d.sspec!==d.spec)?'spec':'ok';
+    d.ai={W:d.W,H:d.H,spec:d.spec,rng:d.rng,qty:d.qty,ctype:j.ind?IND:j.ctype,manual:null};
+    d.v={...d.ai}; d.ok=false; calc(d); return d; })
+   .sort((a,b)=>ord(a.est)-ord(b.est)||a.page-b.page||a.cell.y0-b.cell.y0||a.cell.x0-b.cell.x0);
 }
+// 確認画面の値（d.v）から面積を出す
+function calc(d){ const v=d.v;
+  if(v.ctype===IND){ d.unit=v.manual!=null&&v.manual!==''&&!isNaN(v.manual)?Math.round(+v.manual*100)/100:null; d.coefV=null; }
+  else { const c=(COEFS.find(x=>x[0]===v.ctype)||[])[1]; d.coefV=c; d.unit=(v.W>0&&v.H>0&&c)?ZR.unit(+v.W,+v.H,c,v.rng==='片面'):null; }
+  d.total=d.unit!=null&&v.qty!=null?Math.round(d.unit*(+v.qty)*100)/100:null;
+}
+const changed=(d,k)=>String(d.v[k]??'')!==String(d.ai[k]??'');
+const anyChanged=d=>['W','H','spec','rng','qty','ctype','manual'].some(k=>changed(d,k));
 
 /* ---------- 1 図面 ---------- */
 function s1(){
   const a=PAGES.filter(p=>p.cat==='鉄部等塗装図').length, b=PAGES.filter(p=>p.cat==='住棟集計表').length;
-  main.innerHTML=`<div class="tally"><div><strong>${PAGES.length}</strong>ページ</div><div class="a"><i></i>鉄部等塗装図 <strong>${a}</strong></div><div class="b"><i></i>住棟集計表 <strong>${b}</strong></div><span class="sp"></span><button class="btn" id="nx">読み取り →</button></div><div class="pdf" id="pd"></div>`;
+  main.innerHTML=`<div class="tally"><div><strong>${PAGES.length}</strong>ページ</div><div class="a"><i></i>鉄部等塗装図 <strong>${a}</strong></div><div class="b"><i></i>住棟集計表 <strong>${b}</strong></div><span class="sp"></span><button class="btn" id="nx">読み取り・確認 →</button></div><div class="pdf" id="pd"></div>`;
   const pd=document.getElementById('pd');
   PAGES.forEach((p,i)=>{ const el=document.createElement('div'); el.className='pg'+(p.cat==='鉄部等塗装図'?' on':p.cat==='住棟集計表'?' on q':''); el.title=`p.${p.no} ${p.cat}`;
     const c=document.createElement('canvas'); c.width=thumbs[i].width; c.height=thumbs[i].height; c.getContext('2d').drawImage(thumbs[i],0,0); el.appendChild(c); el.onclick=()=>sheet(p.no,null); pd.appendChild(el); });
   document.getElementById('nx').onclick=()=>go(1);
 }
 
-/* ---------- 2 読み取り・照合 ---------- */
-const WHY={guess:'係数表にない形',spec:'仕様の不一致',ind:'個別計算'};
-let drawerOpen=false;
+/* ---------- 2 読み取り・確認 ---------- */
+function rowHTML(d,i){ const lab=d.ok?'確認済み':d.st!=='ok'?WHY[d.st]:'';
+  return `<button class="row ${d.ok?'done':d.st!=='ok'?'ng':''}" data-i="${i}"><b>${esc(d.code)}</b><span>${esc(d.name.replace(/（.*）/,'').replace(/^鋼製/,''))}</span>${lab?`<i>${d.ok?'✓ ':''}${lab}</i>`:''}</button>`; }
 function s2(){
-  const ng=D.filter(d=>d.st!=='ok').length;
-  main.innerHTML=`<div class="rv"><div class="list" id="ls"><div class="cnt"><span><b>${D.length-ng}</b>自動</span><span class="o"><b>${ng}</b>要確認</span></div>
-  ${EST.map(e=>`<h4>${e}</h4>`+D.map((d,i)=>[d,i]).filter(([d])=>d.est===e).map(([d,i])=>`<button class="row ${d.st!=='ok'?'ng':''}" data-i="${i}"><b>${esc(d.code)}</b><span>${esc(d.name.replace(/（.*）/,'').replace(/^鋼製/,''))}</span>${d.st!=='ok'?`<i>${WHY[d.st]}</i>`:''}</button>`).join('')).join('')}</div>
+  main.innerHTML=`<div class="rv"><div class="list" id="ls"><div class="cnt" id="ct"></div>
+  ${EST.map(e=>`<h4>${e}</h4>`+D.map((d,i)=>[d,i]).filter(([d])=>d.est===e).map(([d,i])=>rowHTML(d,i)).join('')).join('')}</div>
   <div class="view"><div class="vbar" id="vb"></div><div class="vbody"><div class="canvasbox"><div class="stage" id="st" title="クリックで図面全体"></div></div><div class="drawer ${drawerOpen?'open':''}" id="dr"></div></div></div></div>`;
   main.querySelectorAll('.row').forEach(b=>b.onclick=()=>show(+b.dataset.i));
   document.getElementById('st').onclick=()=>sheet(D[cur].page,D[cur]);
-  show(cur);
+  counts(); show(cur);
 }
+function counts(){ const n=D.filter(d=>d.st!=='ok').length, rem=need(), ok=D.filter(d=>d.ok).length, el=document.getElementById('ct'); if(!el) return;
+  el.innerHTML=`<span><b>${ok}</b>確認済</span><span class="o"><b>${rem}</b>要確認</span>${rem===0?`<button class="btn" id="gx" style="margin-left:auto;min-height:34px;padding:0 12px;white-space:nowrap">Excel転記 →</button>`:''}`;
+  const gx=document.getElementById('gx'); if(gx) gx.onclick=()=>go(2); drawNav(); }
+function refreshRow(i){ const old=document.querySelector(`.row[data-i="${i}"]`); if(!old) return; old.outerHTML=rowHTML(D[i],i); const nb=document.querySelector(`.row[data-i="${i}"]`); nb.onclick=()=>show(i); nb.classList.toggle('cur',i===cur); }
 document.addEventListener('keydown',e=>{ if(document.querySelector('.modal')){ if(e.key==='Escape') document.querySelector('.modal').remove(); return; }
-  if(step!==1) return; if(e.key==='ArrowDown'||e.key==='ArrowRight'){e.preventDefault();show(Math.min(cur+1,D.length-1));} if(e.key==='ArrowUp'||e.key==='ArrowLeft'){e.preventDefault();show(Math.max(cur-1,0));} if(e.key==='Escape'&&drawerOpen) toggleDrawer(); });
+  if(step!==1||/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+  if(e.key==='ArrowDown'){e.preventDefault();show(Math.min(cur+1,D.length-1));} if(e.key==='ArrowUp'){e.preventDefault();show(Math.max(cur-1,0));} });
 function overlay(d,ox,oy,s,r){
   return KEYS.map((k,j)=>{ const bs=[].concat(d.boxes[k]||[]).filter(Boolean); return bs.map((b,m)=>{ const x=(b.x0-ox)*s,y=(b.y0-oy)*s,w=(b.x1-b.x0)*s,h=(b.y1-b.y0)*s;
     return `<rect class="box" x="${x}" y="${y}" width="${w}" height="${h}" rx="2"/>${(m===0||k==='dim')?`<g class="mk"><circle cx="${x+w+r*0.7}" cy="${y-r*0.5}" r="${r}"/><text x="${x+w+r*0.7}" y="${y-r*0.5}" style="font-size:${r*1.15}px">${j+1}</text></g>`:''}`; }).join(''); }).join('');
 }
-function toggleDrawer(){ drawerOpen=!drawerOpen; document.getElementById('dr').classList.toggle('open',drawerOpen); setTimeout(()=>show(cur),270); }
-function show(i){
+function toggleDrawer(){ drawerOpen=!drawerOpen; document.getElementById('dr').classList.toggle('open',drawerOpen); setTimeout(()=>show(cur,true),270); }
+function show(i,keep){
   cur=i; const d=D[i], st=document.getElementById('st'); if(!st) return;
-  document.getElementById('vb').innerHTML=`<b>${esc(d.est)}　${esc(d.code)}</b><span>${esc(d.dwg)}</span><span class="why ${d.st==='ok'?'ok':''}">${d.st==='ok'?'自動':WHY[d.st]}</span><span class="sp"></span><button class="btn sec" id="op">図面全体</button><button class="btn ${drawerOpen?'on':''}" id="rb" aria-expanded="${drawerOpen}">取得結果</button>`;
-  document.getElementById('op').onclick=()=>sheet(d.page,d); document.getElementById('rb').onclick=toggleDrawer;
+  bar(d);
   const c=crops[d.est+'/'+d.code], cw=c.width, ch=c.height, box=st.parentElement.getBoundingClientRect();
   const k=Math.min((box.width-28)/cw,(box.height-28)/ch);
-  st.style.width=cw*k+'px'; st.style.height=ch*k+'px'; st.style.aspectRatio='';
+  st.style.width=cw*k+'px'; st.style.height=ch*k+'px';
   st.innerHTML=''; const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; cv.getContext('2d').drawImage(c,0,0); st.appendChild(cv);
   const ox=d.cell.x0-3, oy=d.cell.y0-3, s=cw/(d.cell.x1-d.cell.x0+6);
   st.insertAdjacentHTML('beforeend',`<svg viewBox="0 0 ${cw} ${ch}" preserveAspectRatio="none" aria-hidden="true">${overlay(d,ox,oy,s,Math.max(cw,ch)/34)}</svg>`);
   st.querySelectorAll('.box').forEach(b=>b.style.strokeWidth=Math.max(cw,ch)/300);
-  const V=[['記号',d.code+'　'+d.name.replace(/（.*）/,'')],['設計数量',`${d.qty} か所`],['W × H',d.W?`${mm(d.W)} × ${mm(d.H)} mm`:'—'],['塗装仕様',d.spec],['塗装範囲',d.rng]];
-  const ec=d.ref.ex_coef, dc=d.coef!=null&&ec!=null&&Math.abs(d.coef-ec)>1e-9, du=d.st==='diff';
-  document.getElementById('dr').innerHTML=`<div>${V.map(([l,v],j)=>`<div class="v2"><b>${j+1}</b><span>${l}</span><strong>${esc(v)}</strong></div>`).join('')}
-  ${d.ind?`<div class="calc ind" style="margin-top:12px"><div class="r">個別計算</div><div class="c" style="margin:6px 0 0">${esc(d.ind)}</div></div>`
-   :`<div class="calc" style="margin-top:12px;padding:12px 14px"><div class="eq" style="font-size:19px">${(d.W/1000).toFixed(2)} × ${(d.H/1000).toFixed(2)} × <em>${d.coef.toFixed(1)}</em>${d.rng==='片面'?' × 0.5':''} ＝ <b>${f2(d.unit)}</b> ㎡</div><div class="c" style="margin:2px 0 0">${esc(d.shape)}　→　係数表「${esc(d.ctype)}」</div></div>`}
-  <div class="cmp2"><div>設計数量</div><div></div><div>${d.qty} か所</div><div>合計 ㎡</div><div></div><div><b>${d.ind?'—':f2(d.total)}</b></div>
-  ${d.st==='spec'?`<div>塗装仕様</div><div class="x">${esc(d.spec)}<br><small>塗装図</small></div><div class="x">${esc(d.sspec)}<br><small>住棟集計表</small></div>`:''}</div></div>`;
-  const ls=document.getElementById('ls');
-  ls.querySelectorAll('.row').forEach(b=>{ const on=+b.dataset.i===cur; b.classList.toggle('cur',on); if(on) b.scrollIntoView({block:'nearest'}); });
+  if(!keep) panel(d);
+  document.querySelectorAll('.row').forEach(b=>{ const on=+b.dataset.i===cur; b.classList.toggle('cur',on); if(on) b.scrollIntoView({block:'nearest'}); });
 }
-window.addEventListener('resize',()=>{ if(step===1&&D.length) show(cur); });
+function bar(d){
+  const w=d.ok?'確認済み':d.st==='ok'?'自動':WHY[d.st];
+  document.getElementById('vb').innerHTML=`<b>${esc(d.est)}　${esc(d.code)}</b><span>${esc(d.dwg)}</span><span class="why ${d.ok?'done':d.st==='ok'?'ok':''}">${d.ok?'✓ ':''}${w}</span><span class="sp"></span><button class="btn sec" id="op">図面全体</button><button class="btn ${drawerOpen?'on':''}" id="rb" aria-expanded="${drawerOpen}">取得結果</button>`;
+  document.getElementById('op').onclick=()=>sheet(d.page,d); document.getElementById('rb').onclick=toggleDrawer;
+}
+function panel(d){
+  const v=d.v, ch=k=>changed(d,k)?'chg':'', isInd=v.ctype===IND;
+  const specs=[...new Set([d.ai.spec,d.sspec,...D.map(x=>x.spec)].filter(Boolean))];
+  document.getElementById('dr').innerHTML=`<div>
+  <div class="ed"><b>1</b><span>記号</span><div class="f ro">${esc(d.code)}　${esc(d.name.replace(/（.*）/,''))}</div></div>
+  <div class="ed"><b>2</b><span>設計数量</span><div class="f"><input type="number" min="0" step="1" data-k="qty" value="${esc(v.qty)}" class="${ch('qty')}" aria-label="設計数量"> か所</div></div>
+  <div class="ed"><b>3</b><span>W × H</span><div class="f"><input type="number" min="0" step="1" data-k="W" value="${esc(v.W??'')}" class="${ch('W')}" aria-label="幅"> × <input type="number" min="0" step="1" data-k="H" value="${esc(v.H??'')}" class="${ch('H')}" aria-label="高さ"> mm</div></div>
+  <div class="ed"><b>4</b><span>塗装仕様</span><div class="f"><select data-k="spec" class="${ch('spec')}" aria-label="塗装仕様">${specs.map(s=>`<option ${s===v.spec?'selected':''}>${esc(s)}</option>`).join('')}</select>${d.st==='spec'?`<span class="tag">集計表は ${esc(d.sspec)}</span>`:''}</div></div>
+  <div class="ed"><b>5</b><span>塗装範囲</span><div class="f"><select data-k="rng" class="${ch('rng')}" aria-label="塗装範囲">${['両面','片面'].map(s=>`<option ${s===v.rng?'selected':''}>${s}</option>`).join('')}</select></div></div>
+  <div class="cf"><span>係数</span><select data-k="ctype" class="${ch('ctype')}" aria-label="係数">${COEFS.map(([n,c])=>`<option value="${esc(n)}" ${n===v.ctype?'selected':''}>${esc(n)}　×${c.toFixed(1)}</option>`).join('')}<option value="${IND}" ${isInd?'selected':''}>${IND}</option></select>
+  ${isInd?`<span>1か所</span><div><input type="number" min="0" step="0.01" data-k="manual" value="${esc(v.manual??'')}" placeholder="例 4.09" style="width:120px;text-align:right" class="${ch('manual')}" aria-label="1か所の面積"> ㎡</div>`:''}</div>
+  <div class="res2" id="rs"></div>
+  <div class="foot"><span class="note" id="nt"></span>${d.ok?`<button class="btn sec" id="ud">確認を取り消す</button>`:''}<button class="btn ${d.ok?'ok':''}" id="okb">${d.ok?'✓ 確認済み':'確認'}</button></div></div>`;
+  const dr=document.getElementById('dr');
+  dr.querySelectorAll('[data-k]').forEach(el=>{ const h=()=>{ const k=el.dataset.k; let val=el.value; if(['W','H','qty'].includes(k)) val=val===''?null:+val; if(k==='manual') val=val===''?null:+val;
+      d.v[k]=val; if(d.ok){ d.ok=false; refreshRow(cur); counts(); bar(d); }
+      if(k==='ctype') { panel(d); return; } el.classList.toggle('chg',changed(d,k)); result(d); };
+    el.addEventListener(el.tagName==='SELECT'?'change':'input',h); });
+  document.getElementById('okb').onclick=()=>confirm(d);
+  const ud=document.getElementById('ud'); if(ud) ud.onclick=()=>{ d.ok=false; refreshRow(cur); counts(); bar(d); panel(d); };
+  result(d);
+}
+function result(d){ calc(d); const v=d.v, rs=document.getElementById('rs'), isInd=v.ctype===IND;
+  rs.innerHTML=isInd?`<div class="eq">個別計算</div><div class="r">${f2(d.unit)}<small>㎡ ×</small>${esc(v.qty)}<small>＝</small>${f2(d.total)}<small>㎡</small></div>`
+   :`<div class="eq">${v.W?(v.W/1000).toFixed(2):'—'} × ${v.H?(v.H/1000).toFixed(2):'—'} × <em>${d.coefV?d.coefV.toFixed(1):'—'}</em>${v.rng==='片面'?' × 0.5':''}</div><div class="r">${f2(d.unit)}<small>㎡ ×</small>${esc(v.qty)}<small>＝</small>${f2(d.total)}<small>㎡</small></div>`;
+  const okb=document.getElementById('okb'); okb.disabled=d.unit==null;
+  document.getElementById('nt').textContent=d.unit==null?(isInd?'1か所の面積を入れると確認できます':'寸法を入れてください'):anyChanged(d)?'修正あり':'';
+}
+function confirm(d){ if(d.unit==null) return; d.ok=true; refreshRow(cur); counts();
+  const nx=D.findIndex((x,i)=>i>cur&&x.st!=='ok'&&!x.ok), first=D.findIndex(x=>x.st!=='ok'&&!x.ok);
+  const j=nx>=0?nx:first; if(j>=0&&d.st!=='ok') show(j); else { bar(d); panel(d); } }
 async function sheet(no,d){
   const m=document.createElement('div'); m.className='modal'; m.innerHTML=`<div class="sheet"><div class="h"><b>p.${no}</b><span>${esc((PAGES[no-1]||{}).cat||'')}　${esc((PAGES[no-1]||{}).dwg||'')}</span><button class="btn sec" id="cl">閉じる</button></div><div class="b" id="sb"></div></div>`;
   document.body.appendChild(m); m.onclick=e=>{ if(e.target===m) m.remove(); }; m.querySelector('#cl').onclick=()=>m.remove();
-  const pg=await doc.getPage(no), vp0=pg.getViewport({scale:1}), s=Math.min((window.innerWidth-60)/vp0.width,(window.innerHeight-110)/vp0.height)*1.0;
+  const pg=await doc.getPage(no), vp0=pg.getViewport({scale:1}), s=Math.min((window.innerWidth-60)/vp0.width,(window.innerHeight-110)/vp0.height);
   const c=await renderCanvas(pg,s*(window.devicePixelRatio||1)); c.style.width=vp0.width*s+'px'; c.style.height=vp0.height*s+'px';
   const sb=m.querySelector('#sb'); sb.appendChild(c);
   if(d){ const b=d.cell; sb.insertAdjacentHTML('beforeend',`<svg width="${vp0.width*s}" height="${vp0.height*s}"><rect x="${b.x0*s}" y="${b.y0*s}" width="${(b.x1-b.x0)*s}" height="${(b.y1-b.y0)*s}" fill="rgba(0,80,162,.06)" stroke="#0050A2" stroke-width="3"/>${overlay(d,0,0,s,9)}</svg>`); }
 }
+window.addEventListener('resize',()=>{ if(step===1&&D.length) show(cur,true); });
 
-/* ---------- 3 Excel ---------- */
-const BL={'朝霞膝折':['1号棟','2号棟','3号棟'],'朝霞膝折第二':['1号棟','2号棟'],'鶴瀬市街地住宅':['住棟等','集会所','屋外'],'大和新倉':['住棟']};
+/* ---------- 3 Excel転記 ---------- */
+const nm=d=>d.name.replace(/（.*）/,'');
+const key=d=>EK[d.est]+'/'+d.code;
 function s3(){
-  main.innerHTML=`<div class="xlbar"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="1" y="1" width="16" height="16" rx="2" fill="#007D6D"/><path d="M5 5l8 8M13 5l-8 8" stroke="#fff" stroke-width="2"/></svg><b style="font-weight:500">数量調書_AI転記.xlsx</b>
+  main.innerHTML=`<div class="xlbar"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="1" y="1" width="16" height="16" rx="2" fill="#007D6D"/><path d="M5 5l8 8M13 5l-8 8" stroke="#fff" stroke-width="2"/></svg><b style="font-weight:500">数量調書.xlsx</b>
   <div class="tabs">${[['3','③ 計算書'],['4','④ 住棟集計表']].map(([k,l])=>`<button data-x="${k}" aria-pressed="${k===xt}">${l}</button>`).join('')}</div></div>
-  <div class="xl" id="xl"></div><div class="keys"><span><i style="background:var(--n50)"></i>個別計算（係数表にない形状）</span></div>`;
+  <div class="xl" id="xl"></div>
+  <div class="keys"><span><i style="background:#FFF6EA"></i>確認で修正した値</span><span class="sp"></span><span class="xprog" id="xp"></span><button class="btn" id="go">${written?'もう一度転記する':'転記する'}</button>${written?'<button class="btn sec" id="dl">Excelを保存</button>':''}</div>`;
   main.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{xt=b.dataset.x; s3();});
-  let h='';
-  const K=d=>d.ref.xkey||d.code, nm=d=>d.name.replace(/（.*）/,'');
-  if(xt==='3'){
-    h=`<table><thead><tr><th>記号</th><th>名称</th><th>塗装仕様</th><th>範囲</th><th>W</th><th>H</th><th>係数</th><th>片面</th><th>単位面積 m2</th></tr></thead><tbody>${EST.map(e=>`<tr class="est"><td colspan="9">${e}</td></tr>`+D.filter(d=>d.est===e).map(d=>{const g=!!d.ind, c=d.st==='diff', cl=g?'g':'';
-      return `<tr><td class="k ${cl}">${esc(K(d))}</td><td class="${cl}">${esc(nm(d))}</td><td class="${cl}">${esc(d.spec)}</td><td class="${cl}">${esc(d.rng)}</td><td class="n ${cl}">${g?'':d.W/1000}</td><td class="n ${cl}">${g?'':d.H/1000}</td><td class="n ${cl} ${c?'chg':''}" ${c?`title="御社 ${d.ref.ex_coef}"`:''}>${g?'':d.coef}</td><td class="n ${cl}">${!g&&d.rng==='片面'?0.5:''}</td><td class="n ${cl} ${c?'chg':''}">${g?'個別計算':f2(d.unit)}</td></tr>`;}).join('')).join('')}</tbody></table>`;
-  } else if(xt==='4'){
-    h=`<table><thead><tr><th>記号</th><th>単位面積</th><th>棟ごとの数量</th><th>計 数量</th><th>計 面積 m2</th></tr></thead><tbody>${EST.map(e=>`<tr class="est"><td colspan="5">${e}</td></tr>`+D.filter(d=>d.est===e).map(d=>{const g=!!d.ind, c=d.st==='diff', cl=g?'g':'';
-      return `<tr><td class="k ${cl}">${esc(K(d))}</td><td class="n ${cl}">${g?'個別計算':f2(d.unit)}</td><td class="${cl}">${(d.perb||[]).map((q,i)=>q?`${BL[e][i]||''} ${q}`:'').filter(Boolean).join('　')}</td><td class="n ${cl}">${d.qty}</td><td class="n ${cl}">${g?'—':f2(d.total)}</td></tr>`;}).join('')).join('')}</tbody></table>`;
-  } else {
-    const H=['膝折1','膝折2','膝折3','第二1','第二2','鶴瀬住棟等','鶴瀬集会所','鶴瀬屋外','大和新倉'];
-    h=`<table><thead><tr><th>集計</th><th>区分</th><th>塗装仕様</th>${H.map(x=>`<th>${x}</th>`).join('')}<th>計 m2</th></tr></thead><tbody>${S5.map(r=>`<tr><td class="k">${esc(r.key)}</td><td>${esc(r.cat)}</td><td>${esc(r.spec)}</td>${r.vals.map((v,i)=>{const x=Math.abs(v-r.human[i])>0.004; return `<td class="n ${x?'chg':''}" ${x?`title="御社 ${f2(r.human[i])}"`:''}>${v?f2(v):''}</td>`;}).join('')}<td class="n ${Math.abs(r.total-r.human_total)>0.004?'chg':''}">${f2(r.total)}</td></tr>`).join('')}</tbody></table>`;
-  }
-  document.getElementById('xl').innerHTML=h;
+  document.getElementById('go').onclick=transcribe;
+  const dl=document.getElementById('dl'); if(dl) dl.onclick=download;
+  table(written);
 }
-
+function table(filled){
+  const xl=document.getElementById('xl'); let h='';
+  const cell=(d,k,txt,cls='')=>`<td class="${cls} ${changed(d,k)?'ed2':''}">${txt}</td>`;
+  if(xt==='3'){
+    h=`<table><thead><tr><th>記号</th><th>区分</th><th>名称</th><th>塗装仕様</th><th>塗装範囲</th><th>W</th><th>H</th><th>n(係数)</th><th>N1</th><th>片面</th><th>単位面積(m2)</th></tr></thead><tbody>${EST.map(e=>`<tr class="est"><td colspan="11">${e}</td></tr>`+D.filter(d=>d.est===e).map(d=>{ const g=d.v.ctype===IND;
+      return `<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(d.kubun)}</td><td>${esc(nm(d))}</td>${cell(d,'spec',esc(d.v.spec))}${cell(d,'rng',esc(d.v.rng))}
+      ${cell(d,'W',g?'':d.v.W/1000,'n')}${cell(d,'H',g?'':d.v.H/1000,'n')}${cell(d,'ctype',g?'個別':d.coefV,'n')}<td class="n">${g?'':1}</td><td class="n">${!g&&d.v.rng==='片面'?0.5:''}</td>${cell(d,g?'manual':'ctype',f2(d.unit),'n')}</tr>`;}).join('')).join('')}</tbody></table>`;
+  } else {
+    h=`<table><thead><tr><th>記号</th><th>名称</th><th>単位面積</th><th>棟ごとの数量</th><th>計 数量</th><th>計 面積 m2</th></tr></thead><tbody>${EST.map(e=>`<tr class="est"><td colspan="6">${e}</td></tr>`+D.filter(d=>d.est===e).map(d=>
+      `<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(nm(d))}</td><td class="n">${f2(d.unit)}</td><td>${(d.perb||[]).map((q,i)=>q?`${BL[e][i]||''} ${q}`:'').filter(Boolean).join('　')}</td>${cell(d,'qty',d.v.qty,'n')}<td class="n">${f2(d.total)}</td></tr>`).join('')).join('')}</tbody></table>`;
+  }
+  xl.innerHTML=h;
+}
+async function transcribe(){
+  const go=document.getElementById('go'); go.disabled=true; xt='3'; main.querySelectorAll('[data-x]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.x==='3')); table(false);
+  const rows=[...document.querySelectorAll('#xl tr[data-r]')], xp=document.getElementById('xp'), xl=document.getElementById('xl');
+  xp.innerHTML=`<span id="xn">0 / ${rows.length}</span><div class="prog"><i id="xb"></i></div>`;
+  const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+  for(let i=0;i<rows.length;i++){ rows[i].classList.remove('wait'); rows[i].classList.add('fill');
+    if(!reduce){ const r=rows[i].offsetTop-xl.clientHeight+60; if(r>xl.scrollTop) xl.scrollTop=r; }
+    document.getElementById('xn').textContent=`${i+1} / ${rows.length}`; document.getElementById('xb').style.width=((i+1)/rows.length*100)+'%';
+    if(!reduce) await new Promise(r=>setTimeout(r,70)); }
+  written=true; await download(); s3();
+}
+// Excel：③計算書・④住棟集計表・読み取り記録（数式つき）
+async function download(){
+  const wb=new ExcelJS.Workbook(); wb.creator='AITech 図面積算AI';
+  const font={name:'Meiryo UI',size:10}, head={type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF2F5'}}, edc={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFF6EA'}};
+  const border={top:{style:'thin',color:{argb:'FFC7CFD7'}},left:{style:'thin',color:{argb:'FFC7CFD7'}},bottom:{style:'thin',color:{argb:'FFC7CFD7'}},right:{style:'thin',color:{argb:'FFC7CFD7'}}};
+  const ws=wb.addWorksheet('③専用部・共用部',{views:[{state:'frozen',ySplit:4}]});
+  ws.getCell('A1').value='鉄部等塗装工事　計算書　【建具】'; ws.getCell('A1').font={...font,size:14,bold:true};
+  ws.getCell('A2').value='寸法・塗装仕様・塗装範囲は鉄部等塗装図、係数は塗装係数表より。橙色は確認で修正した値。'; ws.getCell('A2').font={...font,color:{argb:'FF4E565F'}};
+  const H3=['記号','区分','名称','塗装仕様','塗装範囲','部位','W','','H','','n(係数)','','N1','','片面','','小計','単位面積(m2)'];
+  ws.getRow(4).values=H3; ws.getRow(4).eachCell(c=>{c.fill=head;c.font={...font,bold:true};c.border=border;c.alignment={horizontal:'center'};});
+  [12,8,22,14,9,8,8,3,8,3,9,3,6,3,6,3,10,13].forEach((w,i)=>ws.getColumn(i+1).width=w);
+  let r=5; const ref={};
+  for(const e of EST){ const L=D.filter(d=>d.est===e); if(!L.length) continue;
+    ws.getCell(`A${r}`).value=e; ws.getCell(`A${r}`).font={...font,bold:true}; r++;
+    for(const d of L){ const g=d.v.ctype===IND, row=ws.getRow(r);
+      row.values=[key(d),d.kubun,nm(d),d.v.spec,d.v.rng,g?'個別計算':'',g?null:d.v.W/1000,g?'':'×',g?null:d.v.H/1000,g?'':'×',g?null:d.coefV,g?'':'×',g?null:1,g?'':'×',g?null:(d.v.rng==='片面'?0.5:null),g?'':'='];
+      if(g){ row.getCell(17).value=d.unit; } else row.getCell(17).value={formula:`ROUND(PRODUCT(G${r},I${r},K${r},M${r},O${r}),2)`,result:d.unit};
+      row.getCell(18).value={formula:`Q${r}`,result:d.unit};
+      row.eachCell({includeEmpty:true},(c,i)=>{ if(i<=18){ c.font=font; c.border=border; } if([7,9,11,13,15,17,18].includes(i)) c.numFmt='0.00##'; });
+      const mark=(k,col)=>{ if(changed(d,k)) row.getCell(col).fill=edc; };
+      mark('spec',4); mark('rng',5); mark('W',7); mark('H',9); mark('ctype',11); if(g) mark('manual',17);
+      ref[key(d)]=r; r++; } }
+  const w4=wb.addWorksheet('④住棟集計表',{views:[{state:'frozen',ySplit:4}]});
+  w4.getCell('A1').value='鉄部等塗装工事　住棟集計表　【建具】'; w4.getCell('A1').font={...font,size:14,bold:true};
+  const bmax=3, H4=['記号','名称','塗装仕様','単位','単位面積'];
+  for(let b=0;b<bmax;b++) H4.push(`棟${b+1} 数量`,`棟${b+1} 面積`); H4.push('計 数量','計 面積(m2)');
+  w4.getRow(4).values=H4; w4.getRow(4).eachCell(c=>{c.fill=head;c.font={...font,bold:true};c.border=border;c.alignment={horizontal:'center',wrapText:true};});
+  [12,22,14,6,10,8,10,8,10,8,10,9,12].forEach((w,i)=>w4.getColumn(i+1).width=w);
+  r=5; const C=n=>String.fromCharCode(64+n);
+  for(const e of EST){ const L=D.filter(d=>d.est===e); if(!L.length) continue;
+    w4.getCell(`A${r}`).value=`${e}（${BL[e].join('・')}）`; w4.getCell(`A${r}`).font={...font,bold:true}; r++;
+    for(const d of L){ const row=w4.getRow(r), rr=ref[key(d)];
+      row.getCell(1).value=key(d); row.getCell(2).value=nm(d); row.getCell(3).value=d.v.spec; row.getCell(4).value='m2';
+      row.getCell(5).value={formula:`'③専用部・共用部'!R${rr}`,result:d.unit};
+      const q=d.perb&&d.perb.length&&d.perb.reduce((a,b)=>a+b,0)===+d.v.qty?d.perb:[+d.v.qty];
+      for(let b=0;b<bmax;b++){ const qc=6+b*2; row.getCell(qc).value=q[b]??null; row.getCell(qc+1).value={formula:`IF(${C(qc)}${r}="","",ROUND($E${r}*${C(qc)}${r},2))`,result:q[b]!=null&&d.unit!=null?Math.round(d.unit*q[b]*100)/100:''}; }
+      row.getCell(12).value={formula:`SUM(F${r},H${r},J${r})`,result:+d.v.qty}; row.getCell(13).value={formula:`ROUND(E${r}*L${r},2)`,result:d.total};
+      for(let i=1;i<=13;i++){ const c=row.getCell(i); c.font=font; c.border=border; if(i>=5) c.numFmt=[5,7,9,11,13].includes(i)?'#,##0.00':'#,##0'; }
+      if(changed(d,'qty')) row.getCell(12).fill=edc; r++; } }
+  const w5=wb.addWorksheet('読み取り記録');
+  w5.getRow(1).values=['団地','記号','図面','ページ','状態','確認','修正した項目','W(AI)','H(AI)','仕様(AI)','範囲(AI)','数量(AI)','係数区分(AI)'];
+  w5.getRow(1).eachCell(c=>{c.fill=head;c.font={...font,bold:true};c.border=border;});
+  D.forEach((d,i)=>{ w5.getRow(i+2).values=[d.est,d.code,d.dwg,d.page,d.st==='ok'?'自動':WHY[d.st],d.ok?'確認済み':'',['W','H','spec','rng','qty','ctype','manual'].filter(k=>changed(d,k)).map(k=>({W:'W',H:'H',spec:'塗装仕様',rng:'塗装範囲',qty:'数量',ctype:'係数',manual:'個別面積'})[k]).join('・'),d.ai.W,d.ai.H,d.ai.spec,d.ai.rng,d.ai.qty,d.ai.ctype];
+    w5.getRow(i+2).eachCell(c=>{c.font=font;c.border=border;}); });
+  [14,8,6,6,12,8,18,7,7,12,7,7,28].forEach((w,i)=>w5.getColumn(i+1).width=w);
+  const buf=await wb.xlsx.writeBuffer(), blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const t=new Date(), stamp=`${t.getFullYear()}${String(t.getMonth()+1).padStart(2,'0')}${String(t.getDate()).padStart(2,'0')}`;
+  window.__xlsx=buf;
+  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=`数量調書_転記_${stamp}.xlsx`; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},2000); }catch(e){ console.error(e); }
+}
 start();
 }
 </script>
