@@ -508,7 +508,7 @@ function build(items,sums){
     const d={...it, ...j, qty:s.total, perb:(s.perb||[]).slice(0,NB[it.est]||9), sspec:s.spec||'', kubun:s.kubun||''};
     d.st=j.ind?'ind':(/片引き/.test(j.ctype||'')||j.shape==='3枚開き')?'guess':(d.sspec&&d.sspec!==d.spec)?'spec':'ok';
     d.ai={W:d.W,H:d.H,spec:d.spec,rng:d.rng,qty:d.qty,ctype:j.ind?IND:j.ctype,manual:null};
-    d.v={...d.ai}; d.ok=false; calc(d); return d; })
+    d.v={...d.ai}; d.ok=d.st==='ok'; calc(d); return d; })
    .sort((a,b)=>ord(a.est)-ord(b.est)||a.page-b.page||a.cell.y0-b.cell.y0||a.cell.x0-b.cell.x0);
 }
 // 確認画面の値（d.v）から面積を出す
@@ -531,8 +531,8 @@ function s1(){
 }
 
 /* ---------- 2 読み取り・確認 ---------- */
-function rowHTML(d,i){ const lab=d.ok?'確認済み':d.st!=='ok'?WHY[d.st]:'';
-  return `<button class="row ${d.ok?'done':d.st!=='ok'?'ng':''}" data-i="${i}"><b>${esc(d.code)}</b><span>${esc(d.name.replace(/（.*）/,'').replace(/^鋼製/,''))}</span>${lab?`<i>${d.ok?'✓ ':''}${lab}</i>`:''}</button>`; }
+function rowHTML(d,i){ const lab=d.ok&&d.st!=='ok'?'確認済み':d.st!=='ok'?WHY[d.st]:'';
+  return `<button class="row ${d.ok&&d.st!=='ok'?'done':d.st!=='ok'?'ng':''}" data-i="${i}"><b>${esc(d.code)}</b><span>${esc(d.name.replace(/（.*）/,'').replace(/^鋼製/,''))}</span>${lab?`<i>${d.ok?'✓ ':''}${lab}</i>`:''}</button>`; }
 function s2(){
   main.innerHTML=`<div class="rv"><div class="list" id="ls"><div class="cnt" id="ct"></div>
   ${EST.map(e=>`<h4>${e}</h4>`+D.map((d,i)=>[d,i]).filter(([d])=>d.est===e).map(([d,i])=>rowHTML(d,i)).join('')).join('')}</div>
@@ -567,7 +567,7 @@ function show(i,keep){
   document.querySelectorAll('.row').forEach(b=>{ const on=+b.dataset.i===cur; b.classList.toggle('cur',on); if(on) b.scrollIntoView({block:'nearest'}); });
 }
 function bar(d){
-  const w=d.ok?'確認済み':d.st==='ok'?'自動':WHY[d.st];
+  const w=d.ok?'確認済み':WHY[d.st]||'未確認';
   document.getElementById('vb').innerHTML=`<b>${esc(d.est)}　${esc(d.code)}</b><span>${esc(d.dwg)}</span><span class="why ${d.ok?'done':d.st==='ok'?'ok':''}">${d.ok?'✓ ':''}${w}</span><span class="sp"></span><button class="btn sec" id="op">図面全体</button><button class="btn ${drawerOpen?'on':''}" id="rb" aria-expanded="${drawerOpen}">取得結果</button>`;
   document.getElementById('op').onclick=()=>sheet(d.page,d); document.getElementById('rb').onclick=toggleDrawer;
 }
@@ -614,7 +614,7 @@ window.addEventListener('resize',()=>{ if(step===1&&D.length) show(cur,true); })
 
 /* ---------- 3 Excel転記 ---------- */
 const nm=d=>d.name.replace(/（.*）/,'');
-const done=d=>d.st==='ok'||d.ok;
+const done=d=>d.ok;
 const key=d=>EK[d.est]+'/'+d.code;
 function s3(){
   main.innerHTML=`<div class="xlbar"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="1" y="1" width="16" height="16" rx="2" fill="#007D6D"/><path d="M5 5l8 8M13 5l-8 8" stroke="#fff" stroke-width="2"/></svg><b style="font-weight:500">数量調書.xlsx</b>
