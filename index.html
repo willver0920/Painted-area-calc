@@ -462,7 +462,7 @@ const WHY={guess:'係数表にない形',spec:'仕様の不一致',ind:'個別�
 let doc=null, PAGES=[], D=[], thumbs=[], crops={}, step=-1, cur=0, xt='3', drawerOpen=true, written=false;
 const nav=document.getElementById('nav'), main=document.getElementById('main');
 const need=()=>D.filter(d=>d.st!=='ok'&&!d.ok).length;
-function drawNav(){ const lock=need()>0;
+function drawNav(){ const lock=false;
   nav.innerHTML=D.length?STEPS.map((s,i)=>`${i?'<i></i>':''}<button role="tab" aria-selected="${i===step}" data-i="${i}" ${i===2&&lock?'aria-disabled="true" title="要確認をすべて確認すると進めます"':''}><b>${i+1}</b><span>${s}</span></button>`).join(''):'';
   nav.querySelectorAll('button').forEach(b=>b.onclick=()=>{ if(b.getAttribute('aria-disabled')==='true') return; go(+b.dataset.i); }); }
 function go(i){ step=i; drawNav(); [s1,s2,s3][i](); }
@@ -542,7 +542,7 @@ function s2(){
   counts(); show(cur);
 }
 function counts(){ const n=D.filter(d=>d.st!=='ok').length, rem=need(), ok=D.filter(d=>d.ok).length, el=document.getElementById('ct'); if(!el) return;
-  el.innerHTML=`<span><b>${ok}</b>確認済</span><span class="o"><b>${rem}</b>要確認</span>${rem===0?`<button class="btn" id="gx" style="margin-left:auto;min-height:34px;padding:0 12px;white-space:nowrap">Excel転記 →</button>`:''}`;
+  el.innerHTML=`<span><b>${ok}</b>確認済</span><span class="o"><b>${rem}</b>要確認</span><button class="btn ${rem===0?'':'sec'}" id="gx" style="margin-left:auto;min-height:34px;padding:0 12px;white-space:nowrap">Excel転記 →</button>`;
   const gx=document.getElementById('gx'); if(gx) gx.onclick=()=>go(2); drawNav(); }
 function refreshRow(i){ const old=document.querySelector(`.row[data-i="${i}"]`); if(!old) return; old.outerHTML=rowHTML(D[i],i); const nb=document.querySelector(`.row[data-i="${i}"]`); nb.onclick=()=>show(i); nb.classList.toggle('cur',i===cur); }
 document.addEventListener('keydown',e=>{ if(document.querySelector('.modal')){ if(e.key==='Escape') document.querySelector('.modal').remove(); return; }
@@ -614,12 +614,13 @@ window.addEventListener('resize',()=>{ if(step===1&&D.length) show(cur,true); })
 
 /* ---------- 3 Excel転記 ---------- */
 const nm=d=>d.name.replace(/（.*）/,'');
+const done=d=>d.st==='ok'||d.ok;
 const key=d=>EK[d.est]+'/'+d.code;
 function s3(){
   main.innerHTML=`<div class="xlbar"><svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><rect x="1" y="1" width="16" height="16" rx="2" fill="#007D6D"/><path d="M5 5l8 8M13 5l-8 8" stroke="#fff" stroke-width="2"/></svg><b style="font-weight:500">数量調書.xlsx</b>
   <div class="tabs">${[['3','③ 計算書'],['4','④ 住棟集計表']].map(([k,l])=>`<button data-x="${k}" aria-pressed="${k===xt}">${l}</button>`).join('')}</div></div>
   <div class="xl" id="xl"></div>
-  <div class="keys"><span><i style="background:#FFF6EA"></i>確認で修正した値</span><span class="sp"></span><span class="xprog" id="xp"></span><button class="btn" id="go">${written?'もう一度転記する':'転記する'}</button>${written?'<button class="btn sec" id="dl">Excelを保存</button>':''}</div>`;
+  <div class="keys"><span><i style="background:#FFF6EA"></i>確認で修正した値</span><span><i style="background:#fff"></i>空欄：要確認のうち未確認</span><span class="sp"></span><span class="xprog" id="xp"></span><button class="btn" id="go">${written?'もう一度転記する':'転記する'}</button>${written?'<button class="btn sec" id="dl">Excelを保存</button>':''}</div>`;
   main.querySelectorAll('[data-x]').forEach(b=>b.onclick=()=>{xt=b.dataset.x; s3();});
   document.getElementById('go').onclick=transcribe;
   const dl=document.getElementById('dl'); if(dl) dl.onclick=download;
@@ -630,11 +631,13 @@ function table(filled){
   const cell=(d,k,txt,cls='')=>`<td class="${cls} ${changed(d,k)?'ed2':''}">${txt}</td>`;
   if(xt==='3'){
     h=`<table><thead><tr><th>記号</th><th>区分</th><th>名称</th><th>塗装仕様</th><th>塗装範囲</th><th>W</th><th>H</th><th>n(係数)</th><th>N1</th><th>片面</th><th>単位面積(m2)</th></tr></thead><tbody>${EST.map(e=>`<tr class="est"><td colspan="11">${e}</td></tr>`+D.filter(d=>d.est===e).map(d=>{ const g=d.v.ctype===IND;
+      if(!done(d)) return `<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(d.kubun)}</td><td>${esc(nm(d))}</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>`;
       return `<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(d.kubun)}</td><td>${esc(nm(d))}</td>${cell(d,'spec',esc(d.v.spec))}${cell(d,'rng',esc(d.v.rng))}
       ${cell(d,'W',g?'':d.v.W/1000,'n')}${cell(d,'H',g?'':d.v.H/1000,'n')}${cell(d,'ctype',g?'個別':d.coefV,'n')}<td class="n">${g?'':1}</td><td class="n">${!g&&d.v.rng==='片面'?0.5:''}</td>${cell(d,g?'manual':'ctype',f2(d.unit),'n')}</tr>`;}).join('')).join('')}</tbody></table>`;
   } else {
     h=`<table><thead><tr><th>記号</th><th>名称</th><th>単位面積</th><th>棟ごとの数量</th><th>計 数量</th><th>計 面積 m2</th></tr></thead><tbody>${EST.map(e=>`<tr class="est"><td colspan="6">${e}</td></tr>`+D.filter(d=>d.est===e).map(d=>
-      `<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(nm(d))}</td><td class="n">${f2(d.unit)}</td><td>${(d.perb||[]).map((q,i)=>q?`${BL[e][i]||''} ${q}`:'').filter(Boolean).join('　')}</td>${cell(d,'qty',d.v.qty,'n')}<td class="n">${f2(d.total)}</td></tr>`).join('')).join('')}</tbody></table>`;
+      done(d)?`<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(nm(d))}</td><td class="n">${f2(d.unit)}</td><td>${(d.perb||[]).map((q,i)=>q?`${BL[e][i]||''} ${q}`:'').filter(Boolean).join('　')}</td>${cell(d,'qty',d.v.qty,'n')}<td class="n">${f2(d.total)}</td></tr>`
+      :`<tr class="${filled?'':'wait'}" data-r><td class="k">${esc(key(d))}</td><td>${esc(nm(d))}</td><td></td><td></td><td></td><td></td></tr>`).join('')).join('')}</tbody></table>`;
   }
   xl.innerHTML=h;
 }
@@ -664,6 +667,7 @@ async function download(){
   for(const e of EST){ const L=D.filter(d=>d.est===e); if(!L.length) continue;
     ws.getCell(`A${r}`).value=e; ws.getCell(`A${r}`).font={...font,bold:true}; r++;
     for(const d of L){ const g=d.v.ctype===IND, row=ws.getRow(r);
+      if(!done(d)){ row.values=[key(d),d.kubun,nm(d)]; for(let i=1;i<=18;i++){ const c=row.getCell(i); c.font=font; c.border=border; } ref[key(d)]=r; r++; continue; }
       row.values=[key(d),d.kubun,nm(d),d.v.spec,d.v.rng,g?'個別計算':'',g?null:d.v.W/1000,g?'':'×',g?null:d.v.H/1000,g?'':'×',g?null:d.coefV,g?'':'×',g?null:1,g?'':'×',g?null:(d.v.rng==='片面'?0.5:null),g?'':'='];
       if(g){ row.getCell(17).value=d.unit; } else row.getCell(17).value={formula:`ROUND(PRODUCT(G${r},I${r},K${r},M${r},O${r}),2)`,result:d.unit};
       row.getCell(18).value={formula:`Q${r}`,result:d.unit};
@@ -681,7 +685,9 @@ async function download(){
   for(const e of EST){ const L=D.filter(d=>d.est===e); if(!L.length) continue;
     w4.getCell(`A${r}`).value=`${e}（${BL[e].join('・')}）`; w4.getCell(`A${r}`).font={...font,bold:true}; r++;
     for(const d of L){ const row=w4.getRow(r), rr=ref[key(d)];
-      row.getCell(1).value=key(d); row.getCell(2).value=nm(d); row.getCell(3).value=d.v.spec; row.getCell(4).value='m2';
+      row.getCell(1).value=key(d); row.getCell(2).value=nm(d);
+      if(!done(d)){ for(let i=1;i<=13;i++){ const c=row.getCell(i); c.font=font; c.border=border; } r++; continue; }
+      row.getCell(3).value=d.v.spec; row.getCell(4).value='m2';
       row.getCell(5).value={formula:`'③専用部・共用部'!R${rr}`,result:d.unit};
       const q=d.perb&&d.perb.length&&d.perb.reduce((a,b)=>a+b,0)===+d.v.qty?d.perb:[+d.v.qty];
       for(let b=0;b<bmax;b++){ const qc=6+b*2; row.getCell(qc).value=q[b]??null; row.getCell(qc+1).value={formula:`IF(${C(qc)}${r}="","",ROUND($E${r}*${C(qc)}${r},2))`,result:q[b]!=null&&d.unit!=null?Math.round(d.unit*q[b]*100)/100:''}; }
